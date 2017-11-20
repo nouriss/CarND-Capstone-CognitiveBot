@@ -41,12 +41,32 @@ class WaypointUpdater(object):
 
         rospy.spin()
 
+     def copy_wp(self, waypoint):
+        new_wp = Waypoint()
+        new_wp.pose.pose.position.x = waypoint.pose.pose.position.x
+        new_wp.pose.pose.position.y = waypoint.pose.pose.position.y
+        new_wp.pose.pose.position.z = waypoint.pose.pose.position.z
+        new_wp.pose.pose.orientation.x = waypoint.pose.pose.orientation.x
+        new_wp.pose.pose.orientation.y = waypoint.pose.pose.orientation.y
+        new_wp.pose.pose.orientation.z = waypoint.pose.pose.orientation.z
+        new_wp.pose.pose.orientation.w = waypoint.pose.pose.orientation.w
+        new_wp.twist.twist.linear.x = waypoint.twist.twist.linear.x
+        new_wp.twist.twist.linear.y = waypoint.twist.twist.linear.y
+        new_wp.twist.twist.linear.z = waypoint.twist.twist.linear.z
+        new_wp.twist.twist.angular.x = waypoint.twist.twist.angular.x
+        new_wp.twist.twist.angular.y = waypoint.twist.twist.angular.y
+        new_wp.twist.twist.angular.z = waypoint.twist.twist.angular.z
+
+        return new_wp
+    
     def pose_cb(self, msg):
         # TODO: Implement
+        self.current_pose = msg
         pass
 
     def waypoints_cb(self, waypoints):
         # TODO: Implement
+        self.base_waypoints = waypoints
         pass
 
     def traffic_cb(self, msg):
