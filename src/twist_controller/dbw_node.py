@@ -103,6 +103,7 @@ class DBWNode(object):
                 #       3) publish the controller output 
                 
                 #self.publish(throttle, brake, steer)
+                pass
             
             rate.sleep()
 
