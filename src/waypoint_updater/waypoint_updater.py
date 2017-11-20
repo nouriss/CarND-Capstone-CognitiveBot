@@ -47,7 +47,7 @@ class WaypointUpdater(object):
         #rospy.spin()
         self.loop_handler()
 
-     def copy_wp(self, waypoint):
+    def copy_wp(self, waypoint):
         new_wp = Waypoint()
         new_wp.pose.pose.position.x = waypoint.pose.pose.position.x
         new_wp.pose.pose.position.y = waypoint.pose.pose.position.y
@@ -86,7 +86,7 @@ class WaypointUpdater(object):
 
             # Iterate the base_waypoints to find the closest neighbour
             for i in range (len( wpt_list)):
-                wp_i = wp_list[i].pose.pose.position
+                wp_i = wpt_list[i].pose.pose.position
                 distance = math.sqrt((wp_i.x - curr_pose.x) ** 2 + (wp_i.y - curr_pose.y) ** 2 + (wp_i.z - curr_pose.z) ** 2 )
                 if distance < neighbour_distance_min:
                     neighbour_distance_min = distance
