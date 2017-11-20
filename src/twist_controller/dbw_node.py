@@ -96,8 +96,8 @@ class DBWNode(object):
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
             
-            if ( (self.dbw_enabled) and (self.twist_command not None) and (self.current_velocity not None)
-                and (self.steer_feedback not None) ):
+            if ( (self.dbw_enabled) and (self.twist_command is not None) and (self.current_velocity is not None)
+                and (self.steer_feedback is not None) ):
                 # TODO: 1) implement the Controller in twist_controller.py
                 #       2) feed it with needed parameter 
                 #       3) publish the controller output 
