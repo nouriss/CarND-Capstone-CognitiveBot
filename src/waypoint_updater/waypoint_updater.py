@@ -67,7 +67,7 @@ class WaypointUpdater(object):
     
     def wpt_update(self):
         
-        if ((self.base_waypoints not None) and (self.current_pose not None)):
+        if ((self.base_waypoints is not None) and (self.current_pose is not None)):
             # Create a Standard Lane Message
             lane = Lane()
             # Set frame header : ID and Timestamp
