@@ -57,7 +57,18 @@ class DBWNode(object):
         # self.controller = TwistController(<Arguments you wish to provide>)
 
         # TODO: Subscribe to all the topics you need to
-
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_cb, queue_size=1)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.tc_cb, queue_size=1)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.cv_cb, queue_size=1)
+        rospy.Subscriber('/vehicle/steering_report', SteeringReport, self.st_report_cb, queue_size=1)
+        
+        # TODO: add dbw variables
+        self.dbw_enabled = None
+        self.twist_command = None
+        self.current_velocity = None
+        self.steer_feedback = None
+        
+        # Call the loop handler 
         self.loop()
 
     def loop(self):
@@ -91,6 +102,18 @@ class DBWNode(object):
         bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
+     
+    def tc_cb(self, msg):
+        self.twist_command = msg
+        
+    def dbw_cb(self, msg):
+        self.dbw_enabled = msg.data
+        
+    def cv_cb(self, msg):
+        self.current_velocity = msg
+    
+    def st_report_cb(self,msg):
+        self.steer_feedback = msg.steering_wheel_angle
 
 
 if __name__ == '__main__':
