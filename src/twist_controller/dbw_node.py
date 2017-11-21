@@ -133,16 +133,23 @@ class DBWNode(object):
         bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
-     
+
     def tc_cb(self, msg):
-        self.twist_command = msg
-        
+        # get the target linear and angular velocity
+        # these parameter are feed to pid controller as set values
+        self.target_linear_velocity = msg.twist.linear.x
+        self.target_angular_velocity = msg.twist.angular.z
+
     def dbw_cb(self, msg):
-        self.dbw_enabled = msg.data
-        
+        if  msg.data:
+            self.dbw_enabled = True
+        else:
+            self.dbw_enabled = False
+
+
     def cv_cb(self, msg):
-        self.current_velocity = msg
-    
+        self.current_linear_velocity = msg.twist.linear.x
+
     def st_report_cb(self,msg):
         self.steer_feedback = msg.steering_wheel_angle
 
