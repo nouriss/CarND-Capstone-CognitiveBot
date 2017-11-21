@@ -105,15 +105,29 @@ class DBWNode(object):
             #                                                     <any other argument you need>)
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
-            
-            if ( (self.dbw_enabled) and (self.twist_command is not None) and (self.current_velocity is not None)
-                and (self.steer_feedback is not None) ):
+
+            if ( (self.dbw_enabled) and (self.steer_feedback is not None) and (self.current_linear_velocity is not None)
+                and (self.target_linear_velocity is not None) and (self.target_angular_velocity is not None) ):
                 # TODO: 1) implement the Controller in twist_controller.py
-                #       2) feed it with needed parameter 
-                #       3) publish the controller output 
-                
-                #self.publish(throttle, brake, steer)
-            
+                #       2) feed it with needed parameter
+                #       3) publish the controller output
+
+                # get the target steering angle upon the target_linear velocity and angular_velocity
+                self.target_steer_angle = self.yaw_controller.get_steering(self.target_linear_velocity,
+                                                                           self.target_angular_velocity,
+                                                                           self.current_linear_velocity)
+                controller_arg_list = {
+                        'target_steer_angle'      : self.target_steer_angle,
+                        'steer_feedback'          : self.steer_feedback,
+                        'target_linear_velocity'  : self.target_linear_velocity,
+                        'current_linear_velocity' : self.current_linear_velocity,
+                        'target_angular_velocity' : self.target_angular_velocity
+                }
+
+
+                throttle, brake, steering = self.controller.control(**controller_arg_list)
+                self.publish(throttle, brake, steering)
+                #pass
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
