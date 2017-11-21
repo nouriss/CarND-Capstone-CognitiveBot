@@ -5,7 +5,7 @@ from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
 import math
-
+from yaw_controller import YawController
 from twist_controller import Controller
 
 '''
@@ -45,6 +45,7 @@ class DBWNode(object):
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
         max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
+        min_speed = 0
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
@@ -56,31 +57,40 @@ class DBWNode(object):
         # TODO: Create `TwistController` object
         # self.controller = TwistController(<Arguments you wish to provide>)
         arg_list = {
-            'max_lat_acc': max_lat_accel,
-            'max_steer_angle': max_steer_angle,
-            'steer_ratio': steer_ratio,
-            'wheel_base': wheel_base,
-            'accel_limit': accel_limit,
-            'decel_limit': decel_limit,
-            'brake_deadband': brake_deadband
+            'vehicle_mass'   : vehicle_mass,
+            'fuel_capacity'  : fuel_capacity,
+            'brake_deadband' : brake_deadband,
+            'wheel_radius'   : wheel_radius,
+            'accel_limit'    : accel_limit,
+            'decel_limit'    : decel_limit,
+            'max_steer_angle': max_steer_angle
         }
 
         self.controller = Controller(**arg_list)
-        
+
 
         # TODO: Subscribe to all the topics you need to
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_cb, queue_size=1)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.tc_cb, queue_size=1)
         rospy.Subscriber('/current_velocity', TwistStamped, self.cv_cb, queue_size=1)
         rospy.Subscriber('/vehicle/steering_report', SteeringReport, self.st_report_cb, queue_size=1)
-        
+
         # TODO: add dbw variables
         self.dbw_enabled = False
-        self.twist_command = None
-        self.current_velocity = None
         self.steer_feedback = None
-        
-        # Call the loop handler 
+        self.current_linear_velocity = None
+        self.target_linear_velocity = None
+        self.target_angular_velocity = None
+        self.target_steer_angle = None
+
+        # Yaw controller
+        self.yaw_controller = YawController(wheel_base,
+                                            steer_ratio,
+                                            min_speed,
+                                            max_lat_accel,
+                                            max_steer_angle)
+
+        # Call the loop handler
         self.loop()
 
     def loop(self):
