@@ -26,7 +26,7 @@ LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this n
 
 class WaypointUpdater(object):
     def __init__(self):
-        
+
         rospy.init_node('waypoint_updater')
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -40,14 +40,14 @@ class WaypointUpdater(object):
         # TODO: Add other member variables you need below
         # car current position
         self.current_pose = None
-        # world waypoints 
+        # world waypoints
         self.base_waypoints = None
-        
-        # call the loop_handler 
+
+        # call the loop_handler
         #rospy.spin()
         self.loop_handler()
 
-     def copy_wp(self, waypoint):
+    def copy_wp(self, waypoint):
         new_wp = Waypoint()
         new_wp.pose.pose.position.x = waypoint.pose.pose.position.x
         new_wp.pose.pose.position.y = waypoint.pose.pose.position.y
@@ -64,19 +64,19 @@ class WaypointUpdater(object):
         new_wp.twist.twist.angular.z = waypoint.twist.twist.angular.z
 
         return new_wp
-    
+
     def wpt_update(self):
-        
+
         if ((self.base_waypoints is not None) and (self.current_pose is not None)):
             # Create a Standard Lane Message
             lane = Lane()
             # Set frame header : ID and Timestamp
             lane.header.frame_id = '/neighbour'
-            lane.header.stamp = rospy.Time.now ()
+            lane.header.stamp = rospy.Time.now()
 
             # Get current position
             curr_pose = self.current_pose.pose.position
-            # Get world waypoints 
+            # Get world waypoints
             wpt_list = self.base_waypoints.waypoints
 
             # Create variables for nearest distance and neighbour
@@ -86,7 +86,7 @@ class WaypointUpdater(object):
 
             # Iterate the base_waypoints to find the closest neighbour
             for i in range (len( wpt_list)):
-                wp_i = wp_list[i].pose.pose.position
+                wp_i = wpt_list[i].pose.pose.position
                 distance = math.sqrt((wp_i.x - curr_pose.x) ** 2 + (wp_i.y - curr_pose.y) ** 2 + (wp_i.z - curr_pose.z) ** 2 )
                 if distance < neighbour_distance_min:
                     neighbour_distance_min = distance
@@ -98,17 +98,17 @@ class WaypointUpdater(object):
                 index = i % len(wpt_list)
                 wp_i = self.copy_wp(wpt_list[index])
                 lane.waypoints.append(wp_i)
-                
+
             # publish the final_waypoints of the closest neighbour
-            self.final_waypoints_pub.publish ( lane )
-    
+            self.final_waypoints_pub.publish(lane)
+
     def loop_handler(self):
         # Run the iterations at 10 Hz
         rate = rospy.Rate (10)
         while not rospy.is_shutdown():
             self.wpt_update()
             rate.sleep()
-        
+
     def pose_cb(self, msg):
         # TODO: Implement
         self.current_pose = msg
