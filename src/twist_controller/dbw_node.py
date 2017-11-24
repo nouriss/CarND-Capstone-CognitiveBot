@@ -150,7 +150,7 @@ class DBWNode(object):
 
     def tc_cb(self, msg):
         # get the target linear and angular velocity
-        # these parameter are feed to pid controller as set values
+        # these parameters are feed to pid controller as set values
         self.target_linear_velocity = msg.twist.linear.x
         self.target_angular_velocity = msg.twist.angular.z
 
@@ -159,6 +159,8 @@ class DBWNode(object):
             self.dbw_enabled = True
         else:
             self.dbw_enabled = False
+            #reset pids integrals component
+            self.controller.reset()
 
 
     def cv_cb(self, msg):
