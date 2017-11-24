@@ -49,6 +49,12 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
 
+        self.stop_line_positions = self.config['stop_line_positions']
+        self.visible_range = 300 # 300 meter to lookup distance
+        self.simulation = True
+        self.training = False
+
+
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -101,7 +107,28 @@ class TLDetector(object):
 
         """
         #TODO implement
-        return 0
+        if self.waypoints is not None:
+            wpt_list = self.waypoints.waypoints
+        else:
+            return None
+        # Create variables for nearest distance and neighbour
+        neighbour_index = None
+        neighbour_distance = 9999.0
+
+        # Find Neighbour
+        for i in range(len(wpt_list)):
+            wpti = wpt_list[i].pose.pose.position
+            distance = math.sqrt(
+                (wpti.x - pose.position.x) ** 2 + (wpti.y - pose.position.y) ** 2)# + (wpti.z - pose.position.z) ** 2)
+            if distance < neighbour_distance:
+                neighbour_index = i
+                neighbour_distance = distance
+
+        return neighbour_index
+
+     # return ground truth light state
+    def get_light_state_ground_truth(self, light_index):
+        return light.state
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -113,6 +140,8 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
+
+
         if(not self.has_image):
             self.prev_light_loc = None
             return False
@@ -132,18 +161,69 @@ class TLDetector(object):
 
         """
         light = None
+        if((self.lights is not None) and (self.waypoints is not None) and (self.pose is not None)):
+            # List of positions that correspond to the line to stop in front of for a given intersection
+            stop_line_positions = self.config['stop_line_positions']
+            if(self.pose):
+                car_position = self.get_closest_waypoint(self.pose.pose)
 
-        # List of positions that correspond to the line to stop in front of for a given intersection
-        stop_line_positions = self.config['stop_line_positions']
-        if(self.pose):
-            car_position = self.get_closest_waypoint(self.pose.pose)
+            #TODO find the closest visible traffic light (if one exists)
+            #closest_traffic_light_id = None
 
-        #TODO find the closest visible traffic light (if one exists)
+            traffic_light_closest_wpt_index = None
+            closest_traffic_light_index = None
+            closest_traffic_light_dist = 9999
+
+            car_closest_wpt = self.waypoints.waypoints[car_position].pose.pose.position
+
+            for i in range(len(self.lights)):
+                traffic_light_pose = self.lights[i].pose.pose
+                traffic_light_position = self.get_closest_waypoint(traffic_light_pose)
+
+                tl_wpt_closest = self.waypoints.waypoints[traffic_light_position].pose.pose.position
+                distance = math.sqrt(car_closest_wpt.x - tl_wpt_closest.x) ** 2 +
+                                    (car_closest_wpt.y - tl_wpt_closest.y) ** 2 )
+                                    #+ (car_closest_wpt.z - tl_wpt_closest.z) ** 2)
+
+                if distance < closest_traffic_light_dist:
+                    traffic_light_closest_wpt_index = traffic_light_position
+                    closest_traffic_light_index = i
+                    closest_traffic_light_dist = distance
+
+
+
+            if (closest_traffic_light is not None) and (closest_traffic_light_index is not None) and (closest_traffic_light_dist < self.visible_range):
+                 # Check whether the neighbour traffic light is  ahead or behind the car
+                car_coordinates = self.pose.pose.position
+                car_orientation = self.pose.pose.orientation
+                car_quaternion = (car_orientation.x, car_orientation.y, car_orientation.z, car_orientation.w)
+                # get cartesian orientation angles
+                rotation_pitch_yaw = tf.transformations.euler_from_quaternion(car_quaternion)
+                #
+                yaw = rotation_pitch_yaw[2]
+
+                # Project a unit vector along orientation
+                proj_module = 1.0
+                orient_v = (proj_module * math.cos(yaw), proj_module * math.sin(yaw))
+                estimated_stop_line = self.waypoints.waypoints[traffic_light_closest_wpt_index].pose.pose.position
+                diff_v = (estimated_stop_line.x - car_coordinates.x, estimated_stop_line.y - car_coordinates.y)
+
+                # calculate the vectorial product to determine the orientation
+                vectorial_product = np.dot(orient_v, diff_v)
+
+                if vectorial_product > 0:
+                    light = self.lights[closest_traffic_light_index]
 
         if light:
-            state = self.get_light_state(light)
+            if(self.simulation):
+                state = self.get_light_state_ground_truth(light)
+            else:
+                state = self.get_light_state(light)
+
+            light_wp = traffic_light_closest_wpt_index
+
             return light_wp, state
-        self.waypoints = None
+        #self.waypoints = None
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
