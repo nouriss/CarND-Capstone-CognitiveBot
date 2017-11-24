@@ -33,7 +33,7 @@ class WaypointUpdater(object):
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-
+        rospy.Subscriber('/traffic_waypoint', Lane, self.traffic_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
@@ -42,7 +42,8 @@ class WaypointUpdater(object):
         self.current_pose = None
         # world waypoints
         self.base_waypoints = None
-
+        # traffic light position
+        self.traffic_light_wpt = None
         # call the loop_handler
         #rospy.spin()
         self.loop_handler()
@@ -84,6 +85,9 @@ class WaypointUpdater(object):
             # Set High value as default
             neighbour_distance_min = 99999
 
+            """
+            TODO: add deceleration with low passfilter to stop the car at self.traffic_light_wpt
+            """
             # Iterate the base_waypoints to find the closest neighbour
             for i in range (len( wpt_list)):
                 wp_i = wpt_list[i].pose.pose.position
@@ -121,6 +125,12 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
+        if msg == -1:
+            # no red traffic light detected
+            self.traffic_light_wpt = None
+        else:
+            # stop for the ahead traffic light
+            self.traffic_light_wpt = msg
         pass
 
     def obstacle_cb(self, msg):
