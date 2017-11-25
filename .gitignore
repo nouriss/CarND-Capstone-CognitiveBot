@@ -32,7 +32,3 @@ _ReSharper*/
 packages/
 devel/
 build/
-*.tmp
-*.bin
-*.pyc
-
