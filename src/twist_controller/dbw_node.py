@@ -94,7 +94,7 @@ class DBWNode(object):
         self.loop()
 
     def loop(self):
-        rate = rospy.Rate(50) # 50Hz
+        rate = rospy.Rate(20) # 50Hz
         while not rospy.is_shutdown():
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
@@ -113,15 +113,21 @@ class DBWNode(object):
                 #       3) publish the controller output
 
                 # get the target steering angle upon the target_linear velocity and angular_velocity
-                self.target_steer_angle = self.yaw_controller.get_steering(self.target_linear_velocity,
-                                                                           self.target_angular_velocity,
-                                                                           self.current_linear_velocity)
+                target_linear_velocity = self.target_linear_velocity
+                target_angular_velocity = self.target_angular_velocity
+                current_linear_velocity = self.current_linear_velocity
+                steer_feedback = self.steer_feedback
+
+                self.target_steer_angle = self.yaw_controller.get_steering(target_linear_velocity,
+                                                                           target_angular_velocity,
+                                                                           current_linear_velocity)
+
                 controller_arg_list = {
                         'target_steer_angle'      : self.target_steer_angle,
-                        'steer_feedback'          : self.steer_feedback,
-                        'target_linear_velocity'  : self.target_linear_velocity,
-                        'current_linear_velocity' : self.current_linear_velocity,
-                        'target_angular_velocity' : self.target_angular_velocity
+                        'steer_feedback'          : steer_feedback,
+                        'target_linear_velocity'  : target_linear_velocity,
+                        'current_linear_velocity' : current_linear_velocity,
+                        'target_angular_velocity' : target_angular_velocity
                 }
 
 
