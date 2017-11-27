@@ -21,15 +21,17 @@ class Controller(object):
         self.max_steer_angle = kwargs['max_steer_angle']
 
         #self.acceleration_pid = PID(11.2, 0.05, 0.3, self.decel_limit, self.accel_limit)
-        self.acceleration_pid = PID(12.0, 0.0005, 1.5, self.decel_limit, self.accel_limit)
+        self.acceleration_pid = PID(8, 0.005, 0.6, self.decel_limit, self.accel_limit)
         #self.steer_pid        = PID(0.8, 0.05, 0.2, -self.max_steer_angle/2, self.max_steer_angle/2)
-        self.steer_pid        = PID(1.2, 0.008, 0.2, -self.max_steer_angle/2, self.max_steer_angle/2)
-        # calculate braking gain
-        self.braking_gain = self.vehicle_mass * self.wheel_radius / 4
+        self.steer_pid        = PID(1., 0.008, 0.05, -self.max_steer_angle/2, self.max_steer_angle/2)
+        # calculate braking gain to calculate the braking torque, (total mass of the car = car mass + gas load mass) * wheel radius
+        self.braking_gain = (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
 
         self.last_timestamp = rospy.get_time()
 
-        pass
+        self.steer_lpf = LowPassFilter(tau = 3, ts = 1)
+
+
 
     def control(self, **kwargs):
 
@@ -58,28 +60,29 @@ class Controller(object):
 
             err_vel = float(target_linear_velocity - current_linear_velocity)
             acc_correction = self.acceleration_pid.step(err_vel, dt)
-            rospy.loginfo('[speed_controller] target_linear_velocity  %s', target_linear_velocity)
-            rospy.loginfo('[speed_controller] current_linear_velocity %s', current_linear_velocity)
+            #rospy.loginfo('[speed_controller] target_linear_velocity  %s', target_linear_velocity)
+            #rospy.loginfo('[speed_controller] current_linear_velocity %s', current_linear_velocity)
             #rospy.loginfo('[speed_controller] acc_correction          %s', acc_correction)
             #throttle_gain = 0.12
 
             if ((acc_correction < 0) or (current_linear_velocity < 0.1 and target_linear_velocity == 0)):
                 throttle = 0
                 # transform the brake command to Nm
-                brake = - acc_correction * self.braking_gain * 15
+                brake = - acc_correction * self.braking_gain
                 if brake < self.brake_deadband:
                     brake = self.brake_deadband
                 #self.pid_acceleration.reset()
                 #rospy.loginfo('[speed_controller] Really braking            %s', brake)
             else:
                 # transforme the throttle commad to mile
-                throttle = (acc_correction * GAS_DENSITY)/ ONE_MPH
+                throttle = acc_correction
                 #rospy.loginfo('[speed_controller] Throttle PID output       %s', throttle)
                 brake = 0
 
             # update steering command
             err_steer = float(target_steer_angle - steer_feedback)
             steering = self.steer_pid.step(err_steer, dt)
+            steering = self.steer_lpf.filt(steering)
 
             return throttle, brake, steering
         else:
