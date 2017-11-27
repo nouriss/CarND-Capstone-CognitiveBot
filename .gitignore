@@ -32,7 +32,8 @@ _ReSharper*/
 packages/
 devel/
 build/
-*.tmp
-*.bin
-*.pyc
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
