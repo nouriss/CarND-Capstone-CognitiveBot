@@ -6,6 +6,7 @@ from lowpass import LowPassFilter
 
 GAS_DENSITY = 2.858
 ONE_MPH = 0.44704
+MAX_V_MPS = 44.7 # Maximum speed in meters_per_second
 
 
 class Controller(object):
@@ -20,9 +21,7 @@ class Controller(object):
         self.decel_limit     = kwargs['decel_limit']
         self.max_steer_angle = kwargs['max_steer_angle']
 
-        #self.acceleration_pid = PID(11.2, 0.05, 0.3, self.decel_limit, self.accel_limit)
         self.acceleration_pid = PID(8, 0.005, 0.6, self.decel_limit, self.accel_limit)
-        #self.steer_pid        = PID(0.8, 0.05, 0.2, -self.max_steer_angle/2, self.max_steer_angle/2)
         self.steer_pid        = PID(1., 0.008, 0.05, -self.max_steer_angle/2, self.max_steer_angle/2)
         # calculate braking gain to calculate the braking torque, (total mass of the car = car mass + gas load mass) * wheel radius
         self.braking_gain = (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
@@ -43,12 +42,6 @@ class Controller(object):
         current_linear_velocity = kwargs['current_linear_velocity']
         target_angular_velocity = kwargs['target_angular_velocity']
 
-        '''
-        if math.fabs(twist_linear.x) < 0.1:
-            twist_linear.x = 0.
-        if math.fabs(twist_angular.z) < 0.001:
-            twist_angular.z = 0.
-        '''
 
         if self.last_timestamp is not None:
             # Get current time
@@ -57,6 +50,10 @@ class Controller(object):
             dt = time - self.last_timestamp
             #update time stamp
             self.last_timestamp = time
+
+            if current_linear_velocity < 1:
+                self.acceleration_pid.reset()
+                #self.steer_pid.reset()
 
             err_vel = float(target_linear_velocity - current_linear_velocity)
             acc_correction = self.acceleration_pid.step(err_vel, dt)
