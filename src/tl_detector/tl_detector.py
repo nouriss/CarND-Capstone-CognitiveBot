@@ -240,16 +240,13 @@ class TLDetector(object):
 
 
 
-        if light:
-            if(self.simulation):
-                state = self.get_light_state_ground_truth(light)
-            else:
-                state = self.get_light_state(light)
+        if light is not None:
 
+            state = self.get_light_state(light)
             light_wp = stop_line_next_index
-            if state == TrafficLight.RED:
+            #if state == TrafficLight.RED:
                 #rospy.loginfo('[TrafficLight] state : %s', state)
-                rospy.loginfo('[TrafficLight] stop_line : %s  distance : %s', light_wp, closest_traffic_light_dist)
+                #rospy.loginfo('[TrafficLight] stop_line : %s  distance : %s', light_wp, closest_traffic_light_dist)
             return light_wp, state
         #self.waypoints = None
         return -1, TrafficLight.UNKNOWN
