@@ -27,7 +27,7 @@ class TLClassifier(object):
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         lower_red = np.array([0,50,50])
-        upper_red = np.array([14,255,255])
+        upper_red = np.array([20,255,255])
         Hue_red_range_1 = cv2.inRange(hsv, lower_red , upper_red)
 
         lower_red = np.array([171,50,50])
@@ -39,7 +39,7 @@ class TLClassifier(object):
 
         blur_img = cv2.GaussianBlur(converted_img,(17,17),0)
 
-        circles = cv2.HoughCircles(blur_img, cv2.HOUGH_GRADIENT, 0.5, 30, param1=70, param2=21, minRadius=4, maxRadius=60)
+        circles = cv2.HoughCircles(blur_img, cv2.HOUGH_GRADIENT, 0.5, 30, param1=35, param2=22, minRadius=4, maxRadius=50)
 
         if circles is not None:
             ligh_state = TrafficLight.RED
