@@ -3,6 +3,7 @@ import rospy
 from std_msgs.msg import Int32
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+from geometry_msgs.msg import TwistStamped
 
 import math
 
@@ -21,20 +22,22 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 70 # Number of waypoints we will publish. You can change this number
 MAX_VELOCITY = 40
+MAX_DECEL = 1.0
 ONE_MPH = 0.44704
 
 class WaypointUpdater(object):
     def __init__(self):
 
-        rospy.init_node('waypoint_updater')
+        rospy.init_node('waypoint_updater', log_level=rospy.DEBUG)
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.cv_cb, queue_size=1)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=4)
 
@@ -48,7 +51,7 @@ class WaypointUpdater(object):
 
         self.ts = None
         self.lowpass_tau = None
-
+        self.current_velocity = None
         self.lowpass_filter = None
         # call the loop_handler
         self.loop_handler()
@@ -71,6 +74,8 @@ class WaypointUpdater(object):
 
         return new_wp
 
+    def cv_cb(self, msg):
+        self.current_velocity = msg.twist.linear.x
 
     def get_nearest_ahead_wpt(self, wpt_list, curr_pose):
         # Create variables for nearest distance and neighbour
@@ -88,58 +93,44 @@ class WaypointUpdater(object):
 
         return neighbour_index
 
-    def accelerate(self, lane, wpt_list, neighbour_index):
-
-        for i in range ( neighbour_index, neighbour_index + LOOKAHEAD_WPS ):
-            # Handle Wraparound MAX_VELOCITY
-            index = i % len(wpt_list)
-            filtred_acceleration_velocity = MAX_VELOCITY * ONE_MPH
-            self.set_waypoint_velocity(wpt_list, index, filtred_acceleration_velocity)
-            wp_i = self.copy_wp(wpt_list[index])
-            lane.waypoints.append(wp_i)
-        pass
-
-    def decelerate(self, lane, wpt_list, neighbour_index, traffic_light_wpt):
-
+    def decelerate(self, lane_cp, wpt_list, neighbour_index, traffic_light_wpt):
+        lane = lane_cp
         lookahead_stop_dist = self.distance(wpt_list, neighbour_index, traffic_light_wpt)
-        #self.current_pose
-        if lookahead_stop_dist > 2:
-            set_vel = self.get_waypoint_velocity(wpt_list[neighbour_index])
-            steps = abs(traffic_light_wpt - neighbour_index - 3)
-            if steps != 0:
-                decleratation = set_vel/steps
+        # find min deceleration distance using Vf**2 = Vi**2 + 2ad
+        min_braking_distance = (self.current_velocity**2)/(2*MAX_DECEL)
+
+        #rospy.loginfo('[decelerate]  STOP_LIGNE_wpt    : %s   min_braking_distance    : %s', traffic_light_wpt, min_braking_distance)
+        #rospy.loginfo('[decelerate]  neighbour_index   : %s   lookahead_stop_distance : %s', neighbour_index, lookahead_stop_dist)
+
+
+        #rospy.loginfo('[decelerate] self.current_velocity __________SPEED     : %s', self.current_velocity  )
+
+        if (lookahead_stop_dist < 70) and (min_braking_distance > lookahead_stop_dist - 4):
+
+            min_braking_distance = min(min_braking_distance, lookahead_stop_dist)
+
+            braking_waypoints = neighbour_index
+            # Find num of waypoints on the current path that are needed to travel that distance
+            for i in range (neighbour_index, LOOKAHEAD_WPS):
+                if self.distance (wpt_list, traffic_light_wpt, i) > min_braking_distance:
+                    braking_waypoints = i
+                    break
+            # safety buffer
+            braking_clearance = 5
+            braking_start_wp = max( 0, braking_waypoints - neighbour_index  - braking_clearance )
+            #rospy.loginfo('[decelerate] braking_start_wp    : %s', braking_start_wp)
+            if braking_start_wp <= braking_clearance:
+                deceleration = 2 * MAX_DECEL
             else:
-                decleratation = set_vel/3
+                deceleration = MAX_DECEL
 
-            #correction
-            if lookahead_stop_dist > 4 and set_vel < 0.5:
-                set_vel = 0.6
-
-            count = 1
-            for i in range ( neighbour_index, neighbour_index + traffic_light_wpt + 5):
-                # Handle Wraparound
-                index = i % len(wpt_list)
-                filtred_braking_velocity =  set_vel -  (decleratation    * count)
-                count +=1
-                if filtred_braking_velocity < 0:
-                    filtred_braking_velocity = 0
-                if (abs(traffic_light_wpt - index) < 3) or index > traffic_light_wpt:
-                    filtred_braking_velocity = 0.0
-                if filtred_braking_velocity < 1.0:
-                    filtred_braking_velocity = 0.0
-
-                self.set_waypoint_velocity(wpt_list, index, filtred_braking_velocity)
-                wp_i = self.copy_wp(wpt_list[index])
-                lane.waypoints.append(wp_i)
-        else:
-            for i in range ( neighbour_index, neighbour_index + traffic_light_wpt + 5):
-                # Handle Wraparound
-                index = i % len(wpt_list)
-                #current_velocity = get_waypoint_velocity(wpt_list[index])
-                self.set_waypoint_velocity(wpt_list, index, 0.0)
-                wp_i = self.copy_wp(wpt_list[index])
-                lane.waypoints.append(wp_i)
-            pass
+            #rospy.loginfo('[decelerate] deceleration     : %s', deceleration)
+            for i in range ( braking_start_wp, LOOKAHEAD_WPS):
+                dec_step = i - braking_start_wp + 1
+                lane.waypoints[i].twist.twist.linear.x  = self.current_velocity - (deceleration * dec_step)
+                lane.waypoints[i].twist.twist.linear.x  = max(0.00, lane.waypoints[i].twist.twist.linear.x)
+                ##rospy.loginfo('[decelerate] SETUP_SPEED     : %s', lane.waypoints[i].twist.twist.linear.x )
+        return lane
 
     def wpt_update(self):
 
@@ -157,16 +148,23 @@ class WaypointUpdater(object):
             # Get TrafficLight position if exists
             traffic_light_wpt = self.traffic_light_wpt
             """
-            TODO: add deceleration with low passfilter to stop the car at self.traffic_light_wpt
+            TODO: add deceleration
             """
             neighbour_index = self.get_nearest_ahead_wpt(wpt_list, curr_pose)
             # Create a lookahead wpts sized list for final waypoints
+            # Create a lookahead wps sized list for final waypoints
+            for i in range ( neighbour_index, neighbour_index + LOOKAHEAD_WPS):
+                # Handle Wraparound
+                index = i % len(wpt_list)
+                #self.set_waypoint_velocity(wpt_list, index, MAX_VELOCITY * ONE_MPH)
+                wpi = self.copy_wp(wpt_list[index])
+                lane.waypoints.append(wpi)
 
-            if traffic_light_wpt is not None and  (neighbour_index <= traffic_light_wpt):
-                self.decelerate(lane, wpt_list, neighbour_index, traffic_light_wpt)
-                #self.accelerate(lane, wpt_list, neighbour_index)
-            else:
-                self.accelerate(lane, wpt_list, neighbour_index)
+            #rospy.loginfo('[wpt_update] SETUP_________SPEED     : %s', lane.waypoints[LOOKAHEAD_WPS- 1].twist.twist.linear.x )
+            #rospy.loginfo('[decelerate] self.current_velocity __________SPEED     : %s', self.current_velocity  )
+
+            if (traffic_light_wpt is not None) and (neighbour_index <= traffic_light_wpt) and (self.current_velocity is not None):
+                lane = self.decelerate(lane, wpt_list, neighbour_index, traffic_light_wpt)
 
             # publish the final_waypoints of the closest neighbour
             self.final_waypoints_pub.publish(lane)
